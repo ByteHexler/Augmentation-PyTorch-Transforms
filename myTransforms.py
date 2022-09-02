@@ -1398,24 +1398,56 @@ class AutoRandomRotation(object):
 
 
 class RandomGaussBlur(object):
-    """Random GaussBlurring on image by radius parameter.
+    """Gaussian Blurring on image by random radius parameter.
     Args:
-        radius (list, tuple): radius range for selecting from; you'd better set it < 2
+        radius (number or sequence): radius for gaussian blurring (also known as sigma)
+            if sequence (radius_min, radius_max): the radius is randomly sampled from this range
+            recommended to be < 2
     """
-    def __init__(self, radius=None):
-        if radius is not None:
-            assert isinstance(radius, (tuple, list)) and len(radius) == 2, \
-                "radius should be a list or tuple and it must be of length 2."
-            self.radius = random.uniform(radius[0], radius[1])
+    def __init__(self, radius):
+        if isinstance(radius, collections.abc.Sequence)
+            assert isinstance(radius[0], numbers.Number) and isinstance(radius[1], numbers.Number), \
+                "elements of radius should be numbers."
         else:
-            self.radius = 0.0
+            assert isinstance(radius, numbers.Number), \
+                "radius should be a single number or a range of (radius_min, radius_max)."
+            radius = [radius, radius]
+        
+            self.radius = radius
 
     def __call__(self, img):
-        return img.filter(ImageFilter.GaussianBlur(radius=self.radius))
+        radius = random.uniform(self.radius[0], self.radius[1])
+        return img.filter(ImageFilter.GaussianBlur(radius=radius))
 
     def __repr__(self):
         return self.__class__.__name__ + '(Gaussian Blur radius={0})'.format(self.radius)
 
+class RandomGaussNoise(object):
+    """Additive Gaussian Noise on image by random sigma parameter.
+    Args:
+        sigma (number or sequence): sigma for gaussian noise
+            if sequence (sigma_min, sigma_max): sigma is randomly sampled from this range
+            
+        Inputs have to be normalized tensors
+    """
+    def __init__(self, sigma):
+        if isinstance(sigma, collections.abc.Sequence):
+            assert isinstance(sigma[0], numbers.Number) and isinstance(sigma[1], numbers.Number), \
+                "elements of sigma should be numbers."
+        else:
+            assert isinstance(sigma, numbers.Number), \
+                "sigma should be a single number or a range of (sigma_min, sigma_max)."
+            sigma = [sigma, sigma]
+        
+            self.sigma = sigma
+
+    def __call__(self, tensor):
+        sigma = random.uniform(self.sigma[0], self.sigma[1])
+        tensor =+ torch.randn(img.shape)*sigma
+        return tensor
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(Additive Gaussian Noise sigma={0})'.format(self.sigma)
 
 class RandomAffineCV2(object):
     """Random Affine transformation by CV2 method on image by alpha parameter.
