@@ -167,7 +167,7 @@ class RandomGaussNoise(object):
 
     def __call__(self, tensor):
         sigma = random.uniform(self.sigma[0], self.sigma[1])
-        tensor =+ torch.randn(img.shape)*sigma
+        tensor =+ torch.normal(0, sigma, img.shape)
         return tensor
 
     def __repr__(self):
@@ -176,11 +176,11 @@ class RandomGaussNoise(object):
 class RandomResize(object):
     """Random Resize transformation by scale parameter.
     Args:
-        scale (number or sequence): scale for gaussian noise
+        scale (number or sequence): scale factor for resizing
             if sequence (scale_min, scale_max): scale is randomly sampled from this range
     """
     def __init__(
-        self, scale
+        self, scale,
         interpolation=InterpolationMode.BILINEAR,
         max_size=None,
         antialias=None
