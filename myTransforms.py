@@ -1511,7 +1511,7 @@ class RandomElastic(object):
     """
     def __init__(self, alpha, sigma, interpolation=Image.BILINEAR, padding_mode='reflect'):
         
-        if isinstance(alpha, collections.abc.Sequence)
+        if isinstance(alpha, collections.abc.Sequence):
             assert isinstance(alpha[0], numbers.Number) and isinstance(alpha[1], numbers.Number), \
                 "elements of alpha should be numbers."
         else:
@@ -1519,7 +1519,7 @@ class RandomElastic(object):
                 "alpha should be a single number or a range of (alpha_min, alpha_max)."
             alpha = [alpha, alpha]
         
-        if isinstance(sigma, collections.abc.Sequence) \
+        if isinstance(sigma, collections.abc.Sequence):
             assert isinstance(sigma[0], numbers.Number) and isinstance(sigma[1], numbers.Number), \
                 "elements of sigma should be numbers."
         else:
