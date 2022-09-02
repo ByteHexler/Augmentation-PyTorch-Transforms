@@ -1464,18 +1464,20 @@ class RandomElastic(object):
     Args:
         alpha (float, int): alpha value for Elastic transformation
             if alpha is 0, output is original whatever the sigma;
-            if float:       factor relavtiv to image height
+            if float:       factor relavtiv to image width
                 if alpha is 1.0, output only depends on sigma parameter;
                 if alpha < 1.0 or > 1.0, it zoom in or out the sigma's Relevant dx, dy.
             if int:         absolute value
             if sequence:    range of (alpha_min, alpha_max)
         sigma (float): sigma value for Elastic transformation, should be \ in (0.05,0.1)
-            if float:       factor relavtiv to image height
+            if float:       factor relavtiv to image width
             if int:         absolute value
             if sequence:    range of (sigma_min, sigma_max)
         mask (PIL Image) in __call__, if not assign, set None.
+        interpolation: Default: PIL.Image.BILINEAR
+        padding_mode: Type of padding. Should be: constant, edge, reflect or symmetric. Default is reflect.
     """
-    def __init__(self, alpha, sigma):
+    def __init__(self, alpha, sigma, interpolation=Image.BILINEAR, padding_mode='reflect'):
         
         if isinstance(alpha, collections.abc.Sequence)
             assert isinstance(alpha[0], numbers.Number) and isinstance(alpha[1], numbers.Number), \
@@ -1500,9 +1502,11 @@ class RandomElastic(object):
 
         self.alpha = alpha
         self.sigma = sigma
+        self.interpolation = interpolation
+        self.padding_mode = padding_mode
 
     @staticmethod
-    def RandomElasticCV2(img, alpha, sigma, mask=None):
+    def RandomElasticCV2(img, alpha, sigma, mask=None, interpolation=Image.BILINEAR, padding_mode='reflect'):
         
         for i in range(2):
             if isinstance(alpha[i], float):
@@ -1525,14 +1529,14 @@ class RandomElastic(object):
         x, y, z = np.meshgrid(np.arange(shape[1]), np.arange(shape[0]), np.arange(shape[2]))
         indices = np.reshape(y + dy, (-1, 1)), np.reshape(x + dx, (-1, 1)), np.reshape(z, (-1, 1))
 
-        img = map_coordinates(img, indices, order=0, mode='reflect').reshape(shape)
+        img = map_coordinates(img, indices, order=interpolation, mode=padding_mode).reshape(shape)
         if mask is not None:
             return Image.fromarray(img[..., :3]), Image.fromarray(img[..., 3])
         else:
             return Image.fromarray(img)
 
     def __call__(self, img, mask=None):
-        return self.RandomElasticCV2(np.array(img), self.alpha, self.sigma, mask)
+        return self.RandomElasticCV2(np.array(img), self.alpha, self.sigma, mask, self.interpolation, self.padding_mode)
 
     def __repr__(self):
         format_string = self.__class__.__name__ + '(alpha value={0})'.format(self.alpha)
