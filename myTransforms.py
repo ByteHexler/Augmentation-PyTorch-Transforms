@@ -83,14 +83,14 @@ class RandomChoiceRotation(object):
     """
 
     def __init__(
-        _log_api_usage_once(self)
         self, degrees=[0, 90, 180, 270],
         interpolation: InterpolationMode = InterpolationMode.NEAREST,
         expand: bool = False,
         center: Optional[List[int]] = None,
         fill: Optional[List[float]] = None
     ):
-
+        
+        _log_api_usage_once(self)
         if isinstance(degrees, Sequence):
             for d in degrees:
                 assert isinstance(d, Number), 'all elements of degree have to be numbers'
