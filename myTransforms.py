@@ -1470,17 +1470,42 @@ class RandomElastic(object):
         mask (PIL Image) in __call__, if not assign, set None.
     """
     def __init__(self, alpha, sigma):
-        assert isinstance(alpha, numbers.Number) and isinstance(sigma, numbers.Number), \
-            "alpha and sigma should be a single number."
-        assert 0.05 <= sigma <= 0.1, \
-            "In pathological image, sigma should be in (0.05,0.1)"
+        
+        if isinstance(alpha, collections.abc.Sequence)
+            assert isinstance(alpha[0], numbers.Number) and isinstance(alpha[1], numbers.Number), \
+                "elements of alpha should be numbers."
+        else:
+            assert isinstance(alpha, numbers.Number), \
+                "alpha should be a single number or a range of (alpha_min, alpha_max)."
+            alpha = [alpha, alpha]
+        
+        if isinstance(sigma, collections.abc.Sequence) \
+            assert isinstance(sigma[0], numbers.Number) and isinstance(sigma[1], numbers.Number), \
+                "elements of sigma should be numbers."
+        else:
+            assert isinstance(sigma, numbers.Number), \
+                "sigma should be a single number or a range of (sigma_min, sigma_max)."
+            sigma = [sigma, sigma]
+
+        for s in sigma
+            if isinstance(s, float):
+                assert 0.05 <= s <= 0.1, \
+                    "In pathological image, sigma should be in (0.05,0.1)"
+
         self.alpha = alpha
         self.sigma = sigma
 
     @staticmethod
     def RandomElasticCV2(img, alpha, sigma, mask=None):
-        alpha = img.shape[1] * alpha
-        sigma = img.shape[1] * sigma
+        
+        for i in range(2):
+            if isinstance(alpha[i], float):
+                alpha[i] = img.shape[1] * alpha[i]
+            if isinstance(sigma[i], float):
+                sigma[i] = img.shape[1] * sigma[i]
+
+        alpha = random.uniform(alpha[0],alpha[1])
+        sigma = random.uniform(sigma[0],sigma[1])
         if mask is not None:
             mask = np.array(mask).astype(np.uint8)
             img = np.concatenate((img, mask[..., None]), axis=2)
