@@ -173,6 +173,42 @@ class RandomGaussNoise(object):
     def __repr__(self):
         return self.__class__.__name__ + '(Additive Gaussian Noise sigma={0})'.format(self.sigma)
 
+class RandomResize(object):
+    """Random Resize transformation by scale parameter.
+    Args:
+        scale (number or sequence): scale for gaussian noise
+            if sequence (scale_min, scale_max): scale is randomly sampled from this range
+    """
+    def __init__(
+        self, scale
+        interpolation=InterpolationMode.BILINEAR,
+        max_size=None,
+        antialias=None
+    ):
+        _log_api_usage_once(self)
+        if isinstance(scale, Sequence):
+            assert isinstance(scale[0], Number) and isinstance(scale[1], Number), \
+                "elements of scale should be numbers."
+        else:
+            assert isinstance(scale, Number), \
+                "scale should be a single number or a range of (scale_min, scale_max)."
+            scale = [scale, scale]
+        
+        self.scale = scale
+        self.interpolation=interpolation
+        self.max_size=max_size
+        self.antialias=antialias
+
+    def __call__(self, img):
+        scale = random.uniform(self.scale[0], self.scale[1])
+        w, h = img.size
+        size = (round(scale*h),round(scale*w))
+        img = F.resize(img, size, self.interpolation, self.max_size, self.antialias)
+        return img
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(scale value={0})'.format(self.scale)
+
 class RandomAffineCV2(object):
     """Random Affine transformation by CV2 method on image by alpha parameter.
     Args:
