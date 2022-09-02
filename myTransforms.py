@@ -167,7 +167,7 @@ class RandomGaussNoise(torch.nn.Module):
 
     def __call__(self, tensor):
         sigma = random.uniform(self.sigma[0], self.sigma[1])
-        tensor =+ torch.normal(0, sigma, img.shape)
+        tensor =+ torch.normal(0, sigma, tensor.shape)
         return tensor
 
     def __repr__(self):
