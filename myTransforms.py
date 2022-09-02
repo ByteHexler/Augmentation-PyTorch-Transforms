@@ -64,7 +64,7 @@ class HEDJitter(object):
         return format_string
 
 
-class RandomChoiceRotation(torch.nn.Module):
+class RandomChoiceRotation(object):
     """randomly select one of the provided angles for rotating the image (default: [0, 90, 180, 270]).
 
     Args:
@@ -105,7 +105,7 @@ class RandomChoiceRotation(torch.nn.Module):
         self.center = center
         self.fill = fill
 
-    def forward(self, img):
+    def __call__(self, img):
         degree = random.choice(self.degrees)
         return F.rotate(img, degree, self.interpolation, self.expand, self.center, self.fill)
 
@@ -145,7 +145,7 @@ class RandomGaussBlur(object):
     def __repr__(self):
         return self.__class__.__name__ + '(Gaussian Blur radius={0})'.format(self.radius)
 
-class RandomGaussNoise(torch.nn.Module):
+class RandomGaussNoise(object):
     """Additive Gaussian Noise on image by random sigma parameter.
     Args:
         sigma (number or sequence): sigma for gaussian noise
@@ -165,7 +165,7 @@ class RandomGaussNoise(torch.nn.Module):
         
         self.sigma = sigma
 
-    def forward(self, tensor):
+    def __call__(self, tensor):
         sigma = random.uniform(self.sigma[0], self.sigma[1])
         tensor =+ torch.normal(0, sigma, tensor.shape)
         return tensor
