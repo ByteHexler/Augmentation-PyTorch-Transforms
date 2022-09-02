@@ -105,7 +105,7 @@ class RandomChoiceRotation(torch.nn.Module):
         self.center = center
         self.fill = fill
 
-    def __call__(self, img):
+    def forward(self, img):
         degree = random.choice(self.degrees)
         return F.rotate(img, degree, self.interpolation, self.expand, self.center, self.fill)
 
@@ -165,7 +165,7 @@ class RandomGaussNoise(torch.nn.Module):
         
         self.sigma = sigma
 
-    def __call__(self, tensor):
+    def forward(self, tensor):
         sigma = random.uniform(self.sigma[0], self.sigma[1])
         tensor =+ torch.normal(0, sigma, tensor.shape)
         return tensor
