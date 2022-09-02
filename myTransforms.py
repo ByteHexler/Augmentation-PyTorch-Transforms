@@ -15,7 +15,8 @@ import cv2
 from scipy.ndimage.interpolation import map_coordinates
 from scipy.ndimage.filters import gaussian_filter
 
-from torchvision.transforms import *
+from torchvision.transforms.transforms import *
+from torchvision.transforms.transforms import __all__
 
 __all__ = __all__ + ["HEDJitter", "RandomChoiceRotation", "RandomGaussBlur", "RandomGaussNoise", "RandomAffineCV2", "RandomElastic"]
 
@@ -84,10 +85,10 @@ class RandomChoiceRotation(object):
 
     def __init__(
         self, degrees=[0, 90, 180, 270],
-        interpolation: InterpolationMode = InterpolationMode.NEAREST,
-        expand: bool = False,
-        center: Optional[List[int]] = None,
-        fill: Optional[List[float]] = None
+        interpolation=InterpolationMode.NEAREST,
+        expand=False,
+        center=None,
+        fill=None
     ):
         
         _log_api_usage_once(self)
