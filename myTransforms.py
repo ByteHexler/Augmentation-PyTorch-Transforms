@@ -1045,10 +1045,10 @@ class RandomAffine(object):
     .. _filters: https://pillow.readthedocs.io/en/latest/handbook/concepts.html#filters
 
     """
-    # degree: rotate for the image; \in [-180, 180]; 旋转
-    # translate: translation for the image, \in [0,1] 平移
-    # scale: scale the image with center invariant, better \in (0,2] 放缩
-    # shear: shear the image with dx or dy, w\in [-180, 180] 扭曲
+    # degree: rotate for the image; \in [-180, 180]; ??
+    # translate: translation for the image, \in [0,1] ??
+    # scale: scale the image with center invariant, better \in (0,2] ??
+    # shear: shear the image with dx or dy, w\in [-180, 180] ??
     # eg.
     # preprocess1 = myTransforms.RandomAffine(degrees=0, translate=[0, 0.2], scale=[0.8, 1.2],
     #                                        shear=[-10, 10, -10, 10], fillcolor=(228, 218, 218))
@@ -1405,7 +1405,7 @@ class RandomGaussBlur(object):
             recommended to be < 2
     """
     def __init__(self, radius):
-        if isinstance(radius, collections.abc.Sequence)
+        if isinstance(radius, collections.abc.Sequence):
             assert isinstance(radius[0], numbers.Number) and isinstance(radius[1], numbers.Number), \
                 "elements of radius should be numbers."
         else:
@@ -1527,7 +1527,7 @@ class RandomElastic(object):
                 "sigma should be a single number or a range of (sigma_min, sigma_max)."
             sigma = [sigma, sigma]
 
-        for s in sigma
+        for s in sigma:
             if isinstance(s, float):
                 assert 0.05 <= s <= 0.1, \
                     "In pathological image, sigma should be in (0.05,0.1)"
@@ -1575,5 +1575,3 @@ class RandomElastic(object):
         format_string += ', sigma={0}'.format(self.sigma)
         format_string += ')'
         return format_string
-
-
