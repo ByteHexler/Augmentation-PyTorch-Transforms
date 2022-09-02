@@ -36,11 +36,12 @@ class HEDJitter(object):
         _log_api_usage_once(self)
         assert isinstance(theta, Number), "theta should be a single number."
         self.theta = theta
-        self.alpha = np.random.uniform(1-theta, 1+theta, (1, 3))
-        self.betti = np.random.uniform(-theta, theta, (1, 3))
 
     @staticmethod
-    def adjust_HED(img, alpha, betti):
+    def adjust_HED(img, theta):
+        alpha = np.random.uniform(1-theta, 1+theta, (1, 3))
+        betti = np.random.uniform(-theta, theta, (1, 3))
+        
         img = np.array(img)
 
         s = np.reshape(color.rgb2hed(img), (-1, 3))
@@ -54,7 +55,7 @@ class HEDJitter(object):
         return Image.fromarray(rsimg)
 
     def __call__(self, img):
-        return self.adjust_HED(img, self.alpha, self.betti)
+        return self.adjust_HED(img, self.theta)
 
     def __repr__(self):
         format_string = self.__class__.__name__ + '('
