@@ -29,8 +29,8 @@ class HEDJitter(object):
     Args:
         theta (float): How much to jitter HED color space,
          alpha is chosen from a uniform distribution [1-theta, 1+theta]
-         betti is chosen from a uniform distribution [-theta, theta]
-         the jitter formula is **s' = \alpha * s + \betti**
+         beta is chosen from a uniform distribution [-theta, theta]
+         the jitter formula is: s' = alpha * s + beta
     """
     def __init__(self, theta=0.): # HED_light: theta=0.05; HED_strong: theta=0.2
         _log_api_usage_once(self)
@@ -40,17 +40,15 @@ class HEDJitter(object):
     @staticmethod
     def adjust_HED(img, theta):
         alpha = np.random.uniform(1-theta, 1+theta, (1, 3))
-        betti = np.random.uniform(-theta, theta, (1, 3))
+        beta = np.random.uniform(-theta, theta, (1, 3))
         
         img = np.array(img)
 
         s = np.reshape(color.rgb2hed(img), (-1, 3))
-        ns = alpha * s + betti  # perturbations on HED color space
+        ns = alpha * s + beta  # perturbations on HED color space
         nimg = color.hed2rgb(np.reshape(ns, img.shape))
 
-        imin = nimg.min()
-        imax = nimg.max()
-        rsimg = (255 * (nimg - imin) / (imax - imin)).astype('uint8')  # rescale to [0,255]
+        rsimg = (nimg*255).astype('uint8')  # rescale to [0,255]
         # transfer to PIL image
         return Image.fromarray(rsimg)
 
@@ -58,11 +56,7 @@ class HEDJitter(object):
         return self.adjust_HED(img, self.theta)
 
     def __repr__(self):
-        format_string = self.__class__.__name__ + '('
-        format_string += 'theta={0}'.format(self.theta)
-        format_string += ',alpha={0}'.format(self.alpha)
-        format_string += ',betti={0}'.format(self.betti)
-        return format_string
+        return self.__class__.__name__+'(theta={0})'.format(self.theta)
 
 
 class RandomChoiceRotation(object):
@@ -151,8 +145,6 @@ class RandomGaussNoise(object):
     Args:
         sigma (number or sequence): sigma for gaussian noise
             if sequence (sigma_min, sigma_max): sigma is randomly sampled from this range
-            
-        Inputs have to be normalized tensors
     """
     def __init__(self, sigma):
         _log_api_usage_once(self)
@@ -166,10 +158,17 @@ class RandomGaussNoise(object):
         
         self.sigma = sigma
 
-    def __call__(self, tensor):
+    def __call__(self, img):
         sigma = random.uniform(self.sigma[0], self.sigma[1])
-        tensor =+ torch.normal(0, sigma, tensor.shape)
-        return tensor
+
+        if isinstance(img, torch.Tensor):
+            img = img + torch.normal(0, sigma, img.shape)
+            return img
+        else:
+            img = np.array(img)
+            noise = np.random.normal(0,sigma*255,img.shape)
+            img = (img+noise).clip(0,255).astype('uint8')
+            return Image.fromarray(img)
 
     def __repr__(self):
         return self.__class__.__name__ + '(Additive Gaussian Noise sigma={0})'.format(self.sigma)
