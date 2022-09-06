@@ -31,16 +31,22 @@ class HEDJitter(object):
          alpha is chosen from a uniform distribution [1-theta, 1+theta]
          beta is chosen from a uniform distribution [-theta, theta]
          the jitter formula is: s' = alpha * s + beta
+        mode (str): specify which channels to jitter, either ``HE`` or ``HED``
     """
-    def __init__(self, theta=0.): # HED_light: theta=0.05; HED_strong: theta=0.2
+    def __init__(self, theta=0., mode='HE'): # HED_light: theta=0.05; HED_strong: theta=0.2
         _log_api_usage_once(self)
         assert isinstance(theta, Number), "theta should be a single number."
+        assert mode in ['HE','HED'], "mode has to be either ``HE`` or ``HED``"
         self.theta = theta
 
     @staticmethod
     def adjust_HED(img, theta):
         alpha = np.random.uniform(1-theta, 1+theta, (1, 3))
         beta = np.random.uniform(-theta, theta, (1, 3))
+
+        if mode=='HE':
+            alpha[0,2]=1    # don't jitter D-channel
+            beta[0,2]=0
         
         img = np.array(img)
 
