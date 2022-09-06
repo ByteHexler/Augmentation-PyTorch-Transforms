@@ -38,13 +38,14 @@ class HEDJitter(object):
         assert isinstance(theta, Number), "theta should be a single number."
         assert mode in ['HE','HED'], "mode has to be either ``HE`` or ``HED``"
         self.theta = theta
+        self.mode = mode
 
     @staticmethod
     def adjust_HED(img, theta):
         alpha = np.random.uniform(1-theta, 1+theta, (1, 3))
         beta = np.random.uniform(-theta, theta, (1, 3))
 
-        if mode=='HE':
+        if self.mode=='HE':
             alpha[0,2]=1    # don't jitter D-channel
             beta[0,2]=0
         
