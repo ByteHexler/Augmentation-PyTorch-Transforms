@@ -10,7 +10,8 @@ from torchvision.transforms.functional import InterpolationMode, _interpolation_
 
 import numpy as np
 from PIL import Image, ImageFilter
-from skimage import color
+#from skimage import color
+from scipy import linalg
 import cv2
 from scipy.ndimage.interpolation import map_coordinates
 from scipy.ndimage.filters import gaussian_filter
@@ -20,6 +21,10 @@ from torchvision.transforms.transforms import __all__
 
 __all__ = __all__ + ["HEDJitter", "RandomChoiceRotation", "RandomGaussBlur", "RandomGaussNoise", "RandomAffineCV2", "RandomElastic"]
 
+rgb_from_hed = np.array([[0.65, 0.70, 0.29],
+                         [0.07, 0.99, 0.11],
+                         [0.27, 0.57, 0.78]])
+hed_from_rgb = linalg.inv(rgb_from_hed)
 
 class HEDJitter(object):
     """Randomly perturbe the HED color space value an RGB image.
@@ -41,26 +46,26 @@ class HEDJitter(object):
         self.mode = mode
 
     @staticmethod
-    def adjust_HED(img, theta):
+    def adjust_HED(img, theta, mode):
         alpha = np.random.uniform(1-theta, 1+theta, (1, 3))
         beta = np.random.uniform(-theta, theta, (1, 3))
 
-        if self.mode=='HE':
+        if mode=='HE':
             alpha[0,2]=1    # don't jitter D-channel
             beta[0,2]=0
         
-        img = np.array(img)
-
-        s = np.reshape(color.rgb2hed(img), (-1, 3))
+        img = np.array(img)/255
+        s = -np.log(np.reshape(img, (-1, 3)) + 1E-6) @ hed_from_rgb#np.reshape(color.rgb2hed(img), (-1, 3))#*-np.log(1E-6)
         ns = alpha * s + beta  # perturbations on HED color space
-        nimg = color.hed2rgb(np.reshape(ns, img.shape))
+        nimg = np.reshape(np.exp(-ns @ rgb_from_hed) - 1E-6, img.shape)
+        nimg = nimg.clip(0,1)
 
         rsimg = (nimg*255).astype('uint8')  # rescale to [0,255]
         # transfer to PIL image
         return Image.fromarray(rsimg)
 
     def __call__(self, img):
-        return self.adjust_HED(img, self.theta)
+        return self.adjust_HED(img, self.theta, self.mode)
 
     def __repr__(self):
         return self.__class__.__name__+'(theta={0})'.format(self.theta)
