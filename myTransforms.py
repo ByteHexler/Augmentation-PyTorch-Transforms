@@ -10,11 +10,7 @@ from torchvision.transforms.functional import InterpolationMode, _interpolation_
 
 import numpy as np
 from PIL import Image, ImageFilter
-#from skimage import color
-from scipy import linalg
 import cv2
-from scipy.ndimage.interpolation import map_coordinates
-from scipy.ndimage.filters import gaussian_filter
 
 from torchvision.transforms.transforms import *
 from torchvision.transforms.transforms import __all__
@@ -23,8 +19,8 @@ __all__ = __all__ + ["HEDJitter", "RandomChoiceRotation", "RandomGaussBlur", "Ra
 
 rgb_from_hed = np.array([[0.65, 0.70, 0.29],
                          [0.07, 0.99, 0.11],
-                         [0.27, 0.57, 0.78]])
-hed_from_rgb = linalg.inv(rgb_from_hed)
+                         [0.27, 0.57, 0.78]], dtype=np.float32)
+hed_from_rgb = np.linalg.inv(rgb_from_hed)
 
 class HEDJitter(object):
     """Randomly perturbe the HED color space value an RGB image.
@@ -47,15 +43,15 @@ class HEDJitter(object):
 
     @staticmethod
     def adjust_HED(img, theta, mode):
-        alpha = np.random.uniform(1-theta, 1+theta, (1, 3))
-        beta = np.random.uniform(-theta, theta, (1, 3))
+        alpha = np.random.uniform(1-theta, 1+theta, (1, 3)).astype(np.float32)
+        beta = np.random.uniform(-theta, theta, (1, 3)).astype(np.float32)
 
         if mode=='HE':
             alpha[0,2]=1    # don't jitter D-channel
             beta[0,2]=0
         
-        img = np.array(img)/255
-        s = -np.log(np.reshape(img, (-1, 3)) + 1E-6) @ hed_from_rgb#np.reshape(color.rgb2hed(img), (-1, 3))#*-np.log(1E-6)
+        img = np.array(img, dtype=np.float32)/255
+        s = -np.log(np.reshape(img, (-1, 3)) + 1E-6) @ hed_from_rgb
         ns = alpha * s + beta  # perturbations on HED color space
         nimg = np.reshape(np.exp(-ns @ rgb_from_hed) - 1E-6, img.shape)
         nimg = nimg.clip(0,1)
@@ -319,22 +315,19 @@ class RandomElastic(object):
             if isinstance(sigma[i], float):
                 sigma[i] = img.shape[1] * sigma[i]
 
-        alpha = random.uniform(alpha[0],alpha[1])
-        sigma = random.uniform(sigma[0],sigma[1])
+        alpha = np.float32(np.random.uniform(alpha[0],alpha[1]))
+        sigma = np.float32(np.random.uniform(sigma[0],sigma[1]))
         if mask is not None:
             mask = np.array(mask).astype(np.uint8)
             img = np.concatenate((img, mask[..., None]), axis=2)
 
-        shape = img.shape
+        shape = img.shape[:2]
+    
+        dx, dy = [cv2.GaussianBlur((np.random.rand(*shape).astype(np.float32) * 2 - 1) * alpha, (0,0), sigma) for _ in range(2)]
+        x, y = np.meshgrid(np.arange(shape[1]), np.arange(shape[0]))
+        x, y = np.clip(x+dx, 0, shape[1]-1).astype(np.float32), np.clip(y+dy, 0, shape[0]-1).astype(np.float32)
+        img = cv2.remap(img, x, y, interpolation=cv2.INTER_LINEAR, borderValue= 0, borderMode=cv2.BORDER_REFLECT)
 
-        dx = gaussian_filter((np.random.rand(*shape) * 2 - 1), sigma) * alpha
-        dy = gaussian_filter((np.random.rand(*shape) * 2 - 1), sigma) * alpha
-        # dz = np.zeros_like(dx)
-
-        x, y, z = np.meshgrid(np.arange(shape[1]), np.arange(shape[0]), np.arange(shape[2]))
-        indices = np.reshape(y + dy, (-1, 1)), np.reshape(x + dx, (-1, 1)), np.reshape(z, (-1, 1))
-
-        img = map_coordinates(img, indices, order=interpolation, mode=padding_mode).reshape(shape)
         if mask is not None:
             return Image.fromarray(img[..., :3]), Image.fromarray(img[..., 3])
         else:
