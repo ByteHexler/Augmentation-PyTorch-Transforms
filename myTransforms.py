@@ -17,10 +17,10 @@ from torchvision.transforms.transforms import __all__
 
 __all__ = __all__ + ["HEDJitter", "RandomChoiceRotation", "RandomGaussBlur", "RandomGaussNoise", "RandomAffineCV2", "RandomElastic"]
 
-rgb_from_hed = np.array([[0.65, 0.70, 0.29],
+rgb_from_hed = torch.tensor([[0.65, 0.70, 0.29],
                          [0.07, 0.99, 0.11],
-                         [0.27, 0.57, 0.78]], dtype=np.float32)
-hed_from_rgb = np.linalg.inv(rgb_from_hed)
+                         [0.27, 0.57, 0.78]])
+hed_from_rgb = torch.linalg.inv(rgb_from_hed)
 
 class HEDJitter(object):
     """Randomly perturbe the HED color space value an RGB image.
@@ -43,22 +43,18 @@ class HEDJitter(object):
 
     @staticmethod
     def adjust_HED(img, theta, mode):
-        alpha = np.random.uniform(1-theta, 1+theta, (1, 3)).astype(np.float32)
-        beta = np.random.uniform(-theta, theta, (1, 3)).astype(np.float32)
 
-        if mode=='HE':
-            alpha[0,2]=1    # don't jitter D-channel
-            beta[0,2]=0
+        alpha = torch.empty((3, 1)).uniform_(1-theta, 1+theta).to(img.device)
+        beta = torch.empty((3, 1)).uniform_(-theta, theta).to(img.device)
         
-        img = np.array(img, dtype=np.float32)/255
-        s = -np.log(np.reshape(img, (-1, 3)) + 1E-6) @ hed_from_rgb
+        if mode=='HE':
+            alpha[2,0]=1    # don't jitter D-channel
+            beta[2,0]=0
+        
+        s = torch.matmul(-hed_from_rgb.to(img.device), torch.log(img.reshape((img.shape[0],3, -1)) + 1E-6))
         ns = alpha * s + beta  # perturbations on HED color space
-        nimg = np.reshape(np.exp(-ns @ rgb_from_hed) - 1E-6, img.shape)
-        nimg = nimg.clip(0,1)
-
-        rsimg = (nimg*255).astype('uint8')  # rescale to [0,255]
-        # transfer to PIL image
-        return Image.fromarray(rsimg)
+        nimg = (torch.exp(torch.matmul(-rgb_from_hed.to(img.device), ns)) - 1E-6).view(img.shape) # np.reshape(color.rgb2hed(ns), img.shape) # 
+        return nimg.clamp_(0,1)
 
     def __call__(self, img):
         return self.adjust_HED(img, self.theta, self.mode)
@@ -129,21 +125,24 @@ class RandomGaussBlur(object):
             if sequence (radius_min, radius_max): the radius is randomly sampled from this range
             recommended to be < 2
     """
-    def __init__(self, radius):
+    def __init__(self, sigma):
         _log_api_usage_once(self)
-        if isinstance(radius, Sequence):
-            assert isinstance(radius[0], Number) and isinstance(radius[1], Number), \
+        if isinstance(sigma, Sequence):
+            assert isinstance(sigma[0], Number) and isinstance(sigma[1], Number), \
                 "elements of radius should be numbers."
         else:
-            assert isinstance(radius, Number), \
+            assert isinstance(sigma, Number), \
                 "radius should be a single number or a range of (radius_min, radius_max)."
-            radius = [radius, radius]
+            sigma = [sigma, sigma]
         
-        self.radius = radius
+        self.sigma = sigma
 
     def __call__(self, img):
-        radius = random.uniform(self.radius[0], self.radius[1])
-        return img.filter(ImageFilter.GaussianBlur(radius=radius))
+        sigma = torch.empty(1).uniform_(self.sigma[0], self.sigma[1]).item()
+
+        ks = round(sigma*6 + 1)|1 # kernel size calculation of OpenCV: ksize.width = cvRound(sigma1*(depth == CV_8U ? 3 : 4)*2 + 1)|1
+
+        return F.gaussian_blur(img, (ks,ks), sigma)
 
     def __repr__(self):
         return self.__class__.__name__ + '(Gaussian Blur radius={0})'.format(self.radius)
@@ -167,10 +166,10 @@ class RandomGaussNoise(object):
         self.sigma = sigma
 
     def __call__(self, img):
-        sigma = random.uniform(self.sigma[0], self.sigma[1])
+        sigma = torch.empty(1).uniform_(self.sigma[0], self.sigma[1]).item()
 
         if isinstance(img, torch.Tensor):
-            img = img + torch.normal(0, sigma, img.shape)
+            img = img + img.clone().normal_(std=sigma) #torch.normal(0, sigma, img.shape).device(img.device) #img.normal_(std=sigma)#, img.shape)
             return img
         else:
             img = np.array(img)
@@ -208,9 +207,9 @@ class RandomResize(object):
         self.antialias=antialias
 
     def __call__(self, img):
-        scale = random.uniform(self.scale[0], self.scale[1])
-        w, h = img.size
-        size = (round(scale*h),round(scale*w))
+        scale = torch.empty(1).uniform_(self.scale[0], self.scale[1]).item()
+        _, height, width = F.get_dimensions(img)
+        size = (round(scale*height), round(scale*width))
         img = F.resize(img, size, self.interpolation, self.max_size, self.antialias)
         return img
 
@@ -258,10 +257,12 @@ class RandomAffineCV2(object):
 
 
 class RandomElastic(object):
-    """Random Elastic transformation by CV2 method on image by alpha, sigma parameter.
-        # you can refer to:  https://blog.csdn.net/qq_27261889/article/details/80720359
-        # https://blog.csdn.net/maliang_1993/article/details/82020596
-        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.map_coordinates.html#scipy.ndimage.map_coordinates
+    """Elastic distotion of images using alpha, sigma parameter as described in [Simard2003]_.
+    Based on https://gist.github.com/ernestum/601cdf56d2b424757de5
+    .. [Simard2003] Simard, Steinkraus and Platt, "Best Practices for
+         Convolutional Neural Networks applied to Visual Document Analysis", in
+         Proc. of the International Conference on Document Analysis and
+         Recognition, 2003.
     Args:
         alpha (float, int): alpha value for Elastic transformation
             if alpha is 0, output is original whatever the sigma;
@@ -309,32 +310,35 @@ class RandomElastic(object):
     @staticmethod
     def RandomElasticCV2(img, alpha, sigma, mask=None, interpolation=Image.BILINEAR, padding_mode='reflect'):
         
+        _, height, width = F.get_dimensions(img)
+
         for i in range(2):
             if isinstance(alpha[i], float):
-                alpha[i] = img.shape[1] * alpha[i]
+                alpha[i] = alpha[i] * max(height, width)
             if isinstance(sigma[i], float):
-                sigma[i] = img.shape[1] * sigma[i]
+                sigma[i] = sigma[i] * max(height, width)
 
-        alpha = np.float32(np.random.uniform(alpha[0],alpha[1]))
-        sigma = np.float32(np.random.uniform(sigma[0],sigma[1]))
+        alpha = torch.empty(1).uniform_(alpha[0], alpha[1]).item()
+        sigma = torch.empty(1).uniform_(sigma[0], sigma[1]).item()
         if mask is not None:
-            mask = np.array(mask).astype(np.uint8)
-            img = np.concatenate((img, mask[..., None]), axis=2)
+            img = torch.stack((img, torch.tensor(mask)), 1)
 
-        shape = img.shape[:2]
-    
-        dx, dy = [cv2.GaussianBlur((np.random.rand(*shape).astype(np.float32) * 2 - 1) * alpha, (0,0), sigma) for _ in range(2)]
-        x, y = np.meshgrid(np.arange(shape[1]), np.arange(shape[0]))
-        x, y = np.clip(x+dx, 0, shape[1]-1).astype(np.float32), np.clip(y+dy, 0, shape[0]-1).astype(np.float32)
-        img = cv2.remap(img, x, y, interpolation=cv2.INTER_LINEAR, borderValue= 0, borderMode=cv2.BORDER_REFLECT)
+        ks = round(sigma*6 + 1)|1 # kernel size calculation of OpenCV: ksize.width = cvRound(sigma1*(depth == CV_8U ? 3 : 4)*2 + 1)|1
+
+        dgrid = F.gaussian_blur(torch.rand((2, height, width), device=img.device) * 2 - 1, (ks,ks), sigma) #torch.nn.functional.normalize(, p=2, dim=0)
+        grid = torch.stack(torch.meshgrid(torch.arange(width, device=img.device), torch.arange(height, device=img.device), indexing='xy')) + dgrid * alpha
+        y, x = grid[0]/height * 2 - 1, grid[1]/width * 2 - 1
+
+        grid = torch.stack((y, x), 2).expand(img.shape[0],-1,-1,-1).to(img.device)
+        img = torch.nn.functional.grid_sample(img, grid, padding_mode="reflection", align_corners=False)
 
         if mask is not None:
-            return Image.fromarray(img[..., :3]), Image.fromarray(img[..., 3])
+            return img[:, :3, ...], img[:, 3, ...]
         else:
-            return Image.fromarray(img)
+            return img
 
     def __call__(self, img, mask=None):
-        return self.RandomElasticCV2(np.array(img), self.alpha, self.sigma, mask, self.interpolation, self.padding_mode)
+        return self.RandomElasticCV2(img, self.alpha, self.sigma, mask, self.interpolation, self.padding_mode) #np.array(img)
 
     def __repr__(self):
         format_string = self.__class__.__name__ + '(alpha value={0})'.format(self.alpha)
